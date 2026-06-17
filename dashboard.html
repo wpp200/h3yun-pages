@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>军环项目管理驾驶舱</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f2 100%);
+            min-height: 100vh;
+            padding: 24px;
+            color: #2d3748;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 20px 28px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+        .dashboard-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a365d;
+        }
+        .dashboard-subtitle {
+            font-size: 13px;
+            color: #718096;
+            margin-top: 4px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e6fffa;
+            color: #0d9488;
+            border: 1px solid #99f6e4;
+        }
+        .date-label {
+            font-size: 13px;
+            color: #718096;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 14px;
+            padding: 22px 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+        .kpi-card.blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .kpi-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .kpi-card.orange::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .kpi-card.purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+        .kpi-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .kpi-card.teal::before { background: linear-gradient(90deg, #0d9488, #2dd4bf); }
+        .kpi-card.indigo::before { background: linear-gradient(90deg, #4f46e5, #818cf8); }
+        .kpi-card.pink::before { background: linear-gradient(90deg, #ec4899, #f472b6); }
+
+        .kpi-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 14px;
+        }
+        .kpi-icon.blue { background: #eff6ff; color: #3b82f6; }
+        .kpi-icon.green { background: #ecfdf5; color: #10b981; }
+        .kpi-icon.orange { background: #fffbeb; color: #f59e0b; }
+        .kpi-icon.purple { background: #f5f3ff; color: #8b5cf6; }
+        .kpi-icon.red { background: #fef2f2; color: #ef4444; }
+        .kpi-icon.teal { background: #f0fdfa; color: #0d9488; }
+        .kpi-icon.indigo { background: #eef2ff; color: #4f46e5; }
+        .kpi-icon.pink { background: #fdf2f8; color: #ec4899; }
+
+        .kpi-label {
+            font-size: 13px;
+            color: #718096;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .kpi-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #1a202c;
+            line-height: 1.2;
+        }
+        .kpi-unit {
+            font-size: 14px;
+            color: #a0aec0;
+            font-weight: 400;
+            margin-left: 2px;
+        }
+        .kpi-change {
+            display: inline-flex;
+            align-items: center;
+            font-size: 12px;
+            margin-top: 8px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+        .kpi-change.up { background: #ecfdf5; color: #059669; }
+        .kpi-change.down { background: #fef2f2; color: #dc2626; }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+        .chart-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .chart-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        /* Progress Section */
+        .progress-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .progress-card {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+        .progress-item {
+            margin-bottom: 18px;
+        }
+        .progress-item:last-child { margin-bottom: 0; }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .progress-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .progress-percent {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+        .progress-bar {
+            height: 8px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+        .progress-fill.blue { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .progress-fill.green { background: linear-gradient(90deg, #10b981, #34d399); }
+        .progress-fill.orange { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .progress-fill.purple { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+        /* Alert Section */
+        .alerts-card {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        }
+        .alert-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .alert-item:last-child { margin-bottom: 0; }
+        .alert-item.warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+        .alert-item.danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+        .alert-item.info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+        .alert-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+            animation: pulse 2s infinite;
+        }
+        .alert-dot.warning { background: #f59e0b; }
+        .alert-dot.danger { background: #ef4444; }
+        .alert-dot.info { background: #3b82f6; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Bottom Grid */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .charts-grid { grid-template-columns: 1fr; }
+            .progress-section { grid-template-columns: 1fr; }
+            .bottom-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div>
+            <div class="dashboard-title">军环项目管理驾驶舱</div>
+            <div class="dashboard-subtitle">实时数据概览 - 全项目生命周期监控</div>
+        </div>
+        <div class="header-right">
+            <span class="status-badge">系统运行正常</span>
+            <span class="date-label" id="currentDate"></span>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row 1 -->
+    <div class="kpi-grid">
+        <div class="kpi-card blue">
+            <div class="kpi-icon blue">&#128196;</div>
+            <div class="kpi-label">合同总金额</div>
+            <div class="kpi-value">162.1<span class="kpi-unit">万</span></div>
+            <div class="kpi-change up">+11.1万 本月新增</div>
+        </div>
+        <div class="kpi-card green">
+            <div class="kpi-icon green">&#128176;</div>
+            <div class="kpi-label">已收款金额</div>
+            <div class="kpi-value">100.0<span class="kpi-unit">万</span></div>
+            <div class="kpi-change up">收款率 61.69%</div>
+        </div>
+        <div class="kpi-card orange">
+            <div class="kpi-icon orange">&#128203;</div>
+            <div class="kpi-label">已开票金额</div>
+            <div class="kpi-value">85.0<span class="kpi-unit">万</span></div>
+            <div class="kpi-change up">开票率 52.44%</div>
+        </div>
+        <div class="kpi-card purple">
+            <div class="kpi-icon purple">&#128230;</div>
+            <div class="kpi-label">采购总金额</div>
+            <div class="kpi-value">12.5<span class="kpi-unit">万</span></div>
+            <div class="kpi-change down">未付 12.5万</div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row 2 -->
+    <div class="kpi-grid">
+        <div class="kpi-card teal">
+            <div class="kpi-icon teal">&#128666;</div>
+            <div class="kpi-label">入库批次</div>
+            <div class="kpi-value">15<span class="kpi-unit">批</span></div>
+        </div>
+        <div class="kpi-card indigo">
+            <div class="kpi-icon indigo">&#128205;</div>
+            <div class="kpi-label">在建项目</div>
+            <div class="kpi-value">3<span class="kpi-unit">个</span></div>
+        </div>
+        <div class="kpi-card pink">
+            <div class="kpi-icon pink">&#128200;</div>
+            <div class="kpi-label">平均施工进度</div>
+            <div class="kpi-value">68<span class="kpi-unit">%</span></div>
+        </div>
+        <div class="kpi-card red">
+            <div class="kpi-icon red">&#9888;</div>
+            <div class="kpi-label">预警事项</div>
+            <div class="kpi-value">4<span class="kpi-unit">项</span></div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>各项目收款与开票对比</span>
+                <span class="chart-badge">本年度</span>
+            </div>
+            <canvas id="barChart" height="100"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">
+                <span>资金构成分析</span>
+                <span class="chart-badge">实时</span>
+            </div>
+            <canvas id="doughnutChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Progress + Alerts -->
+    <div class="progress-section">
+        <div class="progress-card">
+            <div class="chart-title"><span>施工进度跟踪</span></div>
+            <div class="progress-item">
+                <div class="progress-header">
+                    <span class="progress-name">中海万锦熙岸围墙翻新工程</span>
+                    <span class="progress-percent">75%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill blue" style="width: 75%"></div>
+                </div>
+            </div>
+            <div class="progress-item">
+                <div class="progress-header">
+                    <span class="progress-name">金陵御景园外墙修缮项目</span>
+                    <span class="progress-percent">45%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill green" style="width: 45%"></div>
+                </div>
+            </div>
+            <div class="progress-item">
+                <div class="progress-header">
+                    <span class="progress-name">紫金花园道路改造工程</span>
+                    <span class="progress-percent">90%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill purple" style="width: 90%"></div>
+                </div>
+            </div>
+            <div class="progress-item">
+                <div class="progress-header">
+                    <span class="progress-name">滨湖新城绿化提升项目</span>
+                    <span class="progress-percent">30%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill orange" style="width: 30%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alerts-card">
+            <div class="chart-title"><span>预警提醒</span><span class="chart-badge">实时监控</span></div>
+            <div class="alert-item danger">
+                <div class="alert-dot danger"></div>
+                <span>中海万锦熙岸 - 施工逾期 12 天</span>
+            </div>
+            <div class="alert-item warning">
+                <div class="alert-dot warning"></div>
+                <span>多层板/橡木纹 - 库存不足 (剩余 50 张)</span>
+            </div>
+            <div class="alert-item warning">
+                <div class="alert-dot warning"></div>
+                <span>金陵御景园 - 采购未付款 11,477.6 元</span>
+            </div>
+            <div class="alert-item info">
+                <div class="alert-dot info"></div>
+                <span>紫金花园 - 即将竣工验收 (进度90%)</span>
+            </div>
+            <div class="alert-item danger">
+                <div class="alert-dot danger"></div>
+                <span>滨湖新城 - 收款率低于 40%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Charts -->
+    <div class="bottom-grid">
+        <div class="chart-card">
+            <div class="chart-title"><span>月度收款趋势</span></div>
+            <canvas id="lineChart" height="140"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title"><span>采购类别占比</span></div>
+            <canvas id="pieChart" height="140"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title"><span>库存消耗趋势</span></div>
+            <canvas id="inventoryChart" height="140"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Current date
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+
+        // Chart.js global config
+        Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+        Chart.defaults.font.size = 12;
+        Chart.defaults.color = '#64748b';
+
+        // Bar Chart - Project comparison
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: ['中海万锦熙岸', '金陵御景园', '紫金花园', '滨湖新城'],
+                datasets: [{
+                    label: '已收款',
+                    data: [50, 25, 18, 7],
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }, {
+                    label: '已开票',
+                    data: [40, 22, 15, 8],
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }, {
+                    label: '未收款',
+                    data: [12, 15, 8, 27],
+                    backgroundColor: 'rgba(245, 158, 11, 0.5)',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 20 } } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { callback: v => v + '万' } }
+                }
+            }
+        });
+
+        // Doughnut Chart - Fund composition
+        new Chart(document.getElementById('doughnutChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['已收款', '未收款', '已开票未收', '未开票'],
+                datasets: [{
+                    data: [100, 62.1, 15, 77.1],
+                    backgroundColor: ['#3b82f6', '#f59e0b', '#8b5cf6', '#e2e8f0'],
+                    borderWidth: 0,
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { size: 11 } } }
+                }
+            }
+        });
+
+        // Line Chart - Monthly revenue trend
+        new Chart(document.getElementById('lineChart'), {
+            type: 'line',
+            data: {
+                labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+                datasets: [{
+                    label: '收款金额(万)',
+                    data: [12, 18, 15, 22, 20, 13],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f1f5f9' }, beginAtZero: true }
+                }
+            }
+        });
+
+        // Pie Chart - Procurement categories
+        new Chart(document.getElementById('pieChart'), {
+            type: 'pie',
+            data: {
+                labels: ['工程主材', '辅材消耗品', '五金机电', '其他'],
+                datasets: [{
+                    data: [65, 15, 12, 8],
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11 } } } }
+            }
+        });
+
+        // Inventory trend chart
+        new Chart(document.getElementById('inventoryChart'), {
+            type: 'line',
+            data: {
+                labels: ['第1周', '第2周', '第3周', '第4周', '第5周', '第6周'],
+                datasets: [{
+                    label: '入库',
+                    data: [80, 60, 90, 40, 70, 50],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                }, {
+                    label: '出库',
+                    data: [50, 45, 60, 55, 80, 65],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16 } } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f1f5f9' }, beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
